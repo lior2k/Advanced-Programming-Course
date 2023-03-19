@@ -26,3 +26,21 @@ up in the var array and print the var if exists.
 
 Implementation of 4 (echo $?):
 printf(status)
+
+Implementation of 5 (change dir) -> chdir...
+
+Implementation of 6 (repeat last command):
+Save every command in two variables and whenever a new command is
+received, first save it only in the first variable, if it is equal
+to "!!", execute the previous command (which is saved in the 2nd variable)
+else, save the new command in the 2nd variable aswell and continue regularly.
+
+Implementation of 7 (quit) -> if "quit" break...
+
+Implementation of 8 (ctrl-c):
+overriding signal handler.
+
+Implementation of 10 (variables):
+Save and array of names and an array of values.
+each name at some index i will have it's coresponding value at values array at index i.
+If a new var is entered first check if exists, if so, change it's value to the name value, otherwise, extend the arrays and add the name and the value at the last index.

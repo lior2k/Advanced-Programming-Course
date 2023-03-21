@@ -51,6 +51,9 @@ int main() {
     var *var_array;
     int n = 0; // size of var array
 
+    char **commands;
+    int commandsSize = 0;
+
     while(1) {
         printf("%s", prompt);
         fgets(command, BUFF_SIZE, stdin);
@@ -84,6 +87,12 @@ int main() {
         if (!strcmp(command, "quit")) {
             break;
         }
+
+        /*commands history*/
+        // commandsSize++;
+        // commands = realloc(commands, commandsSize*sizeof(char*));
+        // commands[commandsSize - 1] = malloc(strlen(command)*sizeof(char));
+        // strcpy(commands[commandsSize - 1], command);
 
         // for built in shell commands
         if (!strcmp(argv[0], "prompt") && !strcmp(argv[1], "=")) {
@@ -150,7 +159,7 @@ int main() {
         else 
             amper = 0;
         
-        if (!strcmp(argv[i - 2], ">") || !strcmp(argv[i - 2], "2>") || !strcmp(argv[i - 2], ">>")) {
+        if (i >= 2 && (!strcmp(argv[i - 2], ">") || !strcmp(argv[i - 2], "2>") || !strcmp(argv[i - 2], ">>"))) {
             if (!strcmp(argv[i - 2], ">")) {
                 redirect = REDIRECT;
             } else if (!strcmp(argv[i - 2], "2>")) {
@@ -163,6 +172,7 @@ int main() {
         } else {
             redirect = 0;
         }
+
         /* for commands not part of the shell command language */ 
         if (fork() == 0) { // only the child process enters this if, the parent doesn't
             /* redirection of IO ? */

@@ -41,6 +41,7 @@ Implementation of 8 (ctrl-c):
 overriding signal handler.
 
 Implementation of 10 (variables):
-Save and array of names and an array of values.
-each name at some index i will have it's coresponding value at values array at index i.
-If a new var is entered first check if exists, if so, change it's value to the name value, otherwise, extend the arrays and add the name and the value at the last index.
+Created a struct named 'var' which holds 2 char arrays, the first for the var name
+and the other for the value. in main, hold an array of vars and whenever a new var
+is entered using '$x = y' first search to see if x exists, if so change the value to y,
+otherwise, extend the array and append a new var to the end.

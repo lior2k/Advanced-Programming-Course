@@ -14,24 +14,28 @@
 
 #define BUFF_SIZE 1024
 
-/* return the index of the variable name in the names array, the same index
-can be used to extract the value from the val array. -1 if not found. */
-int lookup(char** names, int n, char *named) {
+typedef struct var {
+    char *name;
+    char *value;
+} var;
+
+/* return pointer to var if exists, null otherwise. */
+var* lookup(var *variables, int n, char *named) {
     int i = 0;
     while (1) {
         if (i >= n) {
             break;
         }
-        if (!strcmp(names[i], named)) {
-            return i;
+        if (!strcmp(variables[i].name, named)) {
+            return variables + (i * sizeof(var));
         }
         i++;
     }
-    return -1;
+    return NULL;
 }
 
 void handle_sigint(int sig) {
-    printf("\nyou typed Control-C!");
+    printf("you typed Control-C!\n");
 }
 
 int main() {
@@ -44,8 +48,7 @@ int main() {
 
     char *prompt = "hello: ";
     char *prevCommand = (char*) malloc(sizeof(char)*BUFF_SIZE);
-    char **varNames;
-    char **varVals;
+    var *var_array;
     int n = 0; // size of var array
 
     while(1) {
@@ -100,9 +103,9 @@ int main() {
                 while (argv[j]) {
                     char* curr = argv[j];
                     if (curr[0] == '$') {
-                        int index = lookup(varNames, n, ++curr);
-                        if (index != -1)
-                            printf("%s ", varVals[index]);
+                        var *variable = lookup(var_array, n, ++curr); //++curr to skip the $ sign because for example $x is saved as x
+                        if (variable != NULL)
+                            printf("%s ", variable->value);
                     } else {
                         printf("%s ", curr);
                     }
@@ -124,18 +127,17 @@ int main() {
             char *varName = argv[0];
             varName++;
             char *varVal = argv[2];
-            int index = lookup(varNames, n, varName);
-            if (index != -1) { // var already exists -> change the value
-                varVals[index] = calloc(strlen(varVal), sizeof(char));
-                strcpy(varVals[index], varVal);
+            var *exist = lookup(var_array, n, varName);
+            if (exist != NULL) { // var already exists -> change the value
+                exist->value = calloc(strlen(varVal), sizeof(char));
+                strcpy(exist->value, varVal);
             } else { // var doesn't exist -> add new value
                 n++;
-                varNames = realloc(varNames, n * sizeof(char*));
-                varVals = realloc(varVals, n * sizeof(char*));
-                varNames[n-1] = malloc(sizeof(char)*strlen(varName));
-                varVals[n-1] = malloc(sizeof(char)*strlen(varVal));
-                strcpy(varNames[n-1], varName);
-                strcpy(varVals[n-1], varVal);
+                var_array = realloc(var_array, n * sizeof(var));
+                var_array[n-1].name = malloc(sizeof(char)*strlen(varName));
+                var_array[n-1].value = malloc(sizeof(char)*strlen(varVal));
+                strcpy(var_array[n-1].name, varName);
+                strcpy(var_array[n-1].value, varVal);
             }
             continue;
         }

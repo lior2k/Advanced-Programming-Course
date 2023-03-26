@@ -1,8 +1,9 @@
 
 To do:
-9 / 11 / 12 / 13
+9
 Makefile
-run some tests to make sure everything is working
+Run some tests to make sure everything is working
+Example File
 
 Notes:
 
@@ -45,3 +46,24 @@ Created a struct named 'var' which holds 2 char arrays, the first for the var na
 and the other for the value. in main, hold an array of vars and whenever a new var
 is entered using '$x = y' first search to see if x exists, if so change the value to y,
 otherwise, extend the array and append a new var to the end.
+
+Implementation of 11 (read):
+Read 2 lines and tokenize by space as usual.
+Using our saveVar function from section 10 I save each named expression to each value
+accordingly (firstrow[i+1] -> secondrow[i]). If there are more names then values, simply
+ignore the redundant names. If there are more values then names, append the last values
+to the last named expression.
+
+Implementation of 12 (arrows):
+Switched the input of the program to be char by char rather then line by line.
+The program listens to the input at the begining of each iteration until a '\n' is read.
+Each command is saved in a 2d char array (char**) as a history/log of commands.
+Whenever a char is pressed (any char), the program updates the command accordingly, up/down arrows generates a whole command from the command log using a saved index and other characters are put into a char array, either way the program listens until a '\n' is entered and rewrites the input line to match to the current inputted command.
+
+Implementation of 13 (if else):
+Whenever a command starts with 'if', read lines until 'fi' is entered.
+While reading those lines, save the index of the 'else' statement if exists.
+Save 2 flags, one for the fork->exec at the continuation of the loop and the second for the following iterations. if 'ifing' (first flag) then exec argv[1] instead of argv[0].
+Then check the status of the executed command and set a pointer (pcmd) to the lines read earlier, if 0 set it to 1, else set it to the 'else' index + 1 (as said before we save that index in a variable).
+In the next iterations, disable IO and execute commands one by one following the pcmd set earlier.
+

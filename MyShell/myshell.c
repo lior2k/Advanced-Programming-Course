@@ -73,17 +73,14 @@ char* IOControl(char *prompt, char *command, char **commands) {
         if (ch == 27) {
             ch = getch(); // read the [[
             ch = getch(); // real value - should be A / B
-            if (ch == 'A') {
-                // printf("Arrow Up\n");
-                
+            if (ch == 'A') { // arrow up
                 if (runner > 0) {
                     runner--;
                     strcpy(command, commands[runner]);
                     k = strlen(command);
                     reWrite(prompt, command);
                 }
-            } else if (ch == 'B') {
-                // printf("Arrow Down\n");
+            } else if (ch == 'B') { // arrow down
                 if (commandsSize >= 1 && runner < commandsSize - 1) {
                     runner++;
                     strcpy(command, commands[runner]);
@@ -95,9 +92,6 @@ char* IOControl(char *prompt, char *command, char **commands) {
                     reWrite(prompt, NULL);
                 }
             }
-            // else {
-            //     printf("Arrow Left/Right\n");
-            // }
         } else {
             putchar(ch);
             command[k++] = ch;
@@ -166,25 +160,82 @@ char** saveCommandInHistory(char **commands, char *command) {
     return commands;
 }
 
+void myfree(char *command, var *var_array, char **commands, char **if_inputs) {
+    free(command);
+    for (int i = 0; i < n; i++) {
+        free(var_array[i].name);
+        free(var_array[i].value);
+    }
+    free(var_array);
+    for (int i = 0; i < commandsSize; i++) {
+        free(commands[i]);
+    }
+    free(commands);
+    int i = 0;
+    while (if_inputs[i] != NULL)
+        free(if_inputs[i++]);
+    free(if_inputs);
+}
+
+int parseCommandLine(char **argv, char *command, char *delimiter) {
+    int argc = 0;
+    char *token = strtok(command, delimiter);
+    while (token != NULL) {
+        argv[argc++] = token;
+        token = strtok(NULL, delimiter);
+    }
+    argv[argc] = NULL;
+    return argc;
+}
+
+void pipeCommand(char **argv, char *command) {
+    char *cmds[10];
+    int num_cmds = parseCommandLine(cmds, command, "|");
+    int pipedes[num_cmds][2];
+    int current_command;
+    for (int index = 0; index < num_cmds; index++) {
+        current_command = parseCommandLine(argv, cmds[index], " ");
+        if (index < num_cmds - 1) {
+            pipe(pipedes[index]);
+        }
+        if (fork() == 0) {
+            if (index < num_cmds - 1) { // not last command -> redirect output to pipedes[1]
+                dup2(pipedes[index][1], 1);
+                close(pipedes[index][0]);
+                close(pipedes[index][1]);
+            }
+            if (index > 0) {
+                dup2(pipedes[index - 1][0], 0); // not first command -> take input from pipedes[0] from earlier iteration
+                close(pipedes[index - 1][0]);
+                close(pipedes[index - 1][1]);
+            }
+            execvp(argv[0], argv);
+        }
+        if (index > 0) { // parent and not first command -> close previous pipes
+            close(pipedes[index - 1][0]);
+            close(pipedes[index - 1][1]);
+        }
+        wait(NULL);
+    }
+}
+
 int main() {
     signal(SIGINT, handle_sigint);
-    int i, fd, amper, retid, status, redirect;
+    int argc, fd, amper, status, redirect;
     char *outfile;
     char *argv[10];
     char *command = (char*) malloc(sizeof(char)*BUFF_SIZE);
-    char *token;
 
     char *prompt = "hello: ";
-    char *prevCommand = (char*) malloc(sizeof(char)*BUFF_SIZE);
 
-    var *var_array = (var*) malloc(0);
+    var *var_array = NULL;
     n = 0; // size of var array
 
     char **commands = (char **) malloc(sizeof(char*));
     commandsSize = 0; // size of commands array
 
-    char **if_inputs = (char **) malloc(0); // [ ["then"], [then-expr], ["else"], [else-expr], ["fi"] ]
-    int ifing = 0, cond = 0, else_pos = -1, pcmd = 0, ifSize = 0;
+    char **if_inputs = NULL; // [ ["then"], [then-expr]*, ["else"], [else-expr]*, ["fi"] ]
+    int ifing = 0, cond = 0, else_pos = -1, pcmd = 0;
 
     while(1) {
         if (!cond) {
@@ -201,27 +252,28 @@ int main() {
             }
         }
 
-        /* note - if command equals to "!!" then change it to the previous command
+        /*if command equals to "!!" then change it to the previous command
          and execute the previous command, otherwise, save the new command in var
          prevCommand and execute the new command regularly */
         if (!strcmp(command, "!!\0")) {
-            command = calloc(BUFF_SIZE, sizeof(char));
-            strcpy(command, prevCommand);
-        } else {
-            strcpy(prevCommand, command);
+            if (commandsSize > 0) {
+                command = calloc(BUFF_SIZE, sizeof(char));
+                strcpy(command, commands[commandsSize - 1]);
+            } else {
+                continue;
+            }
         }
 
         if (command != NULL)
             commands = saveCommandInHistory(commands, command);
 
-        /* parse command line */
-        i = 0;
-        token = strtok(command," ");
-        while (token != NULL) {
-            argv[i++] = token;
-            token = strtok(NULL, " ");
+        if (strchr(command, '|')) {
+            pipeCommand(argv, command);
+            continue;
         }
-        argv[i] = NULL;
+
+        /* parse command line */
+        argc = parseCommandLine(argv, command, " ");
 
         /* Is command empty */ 
         if (argv[0] == NULL)
@@ -258,37 +310,29 @@ int main() {
             fgets(values_str, BUFF_SIZE, stdin);
             values_str[strlen(values_str) - 1] = '\0';
             char *values[10];
-            int j = 0;
-            token = strtok(values_str, " ");
-            while (token != NULL) {
-                values[j++] = token;
-                token = strtok(NULL, " ");
-            }
-            values[j] = NULL;
-
-            int k = 0;
+            int num_values = parseCommandLine(values, values_str, " ");
+            int runner = 0;
             /* save each name to each variable */
-            while (k < i - 1 && k < j) {
-                var_array = saveVar(argv[k+1], values[k], var_array);
-                k++;
+            while (runner < argc - 1 && runner < num_values) {
+                var_array = saveVar(argv[runner+1], values[runner], var_array);
+                runner++;
             }
             /* incase there are more values then names, append the remaining
             values to the last named variable */
-            var *last_var = lookup(var_array, argv[k]);
-            while (k < j) {
-                last_var->value = (char*)realloc(last_var->value, strlen(last_var->value) + strlen(values[k]) + 1);
+            var *last_var = lookup(var_array, argv[runner]);
+            while (runner < num_values) {
+                last_var->value = (char*)realloc(last_var->value, strlen(last_var->value) + strlen(values[runner]) + 1);
                 strcat(last_var->value, " ");
-                strcat(last_var->value, values[k]);
-                k++;
+                strcat(last_var->value, values[runner]);
+                runner++;
             }
             continue;
         }
 
-        // to do - dynamiclly increase input size to allow for more then 1 then and 1 else statements
         if (!strcmp(argv[0], "if")) {
             int j = 0;
             while (1) {
-                if_inputs = (char**)realloc(if_inputs, sizeof(char*)*(j+1));
+                if_inputs = (char**)realloc(if_inputs, sizeof(char*)*(j+2));
                 char *input = malloc(sizeof(char)*BUFF_SIZE);
                 fgets(input, BUFF_SIZE, stdin);
                 input[strlen(input) - 1] = '\0';
@@ -300,36 +344,34 @@ int main() {
                     break;
                 }
             }
-            // if_inputs[j] = NULL;
+            if_inputs[j] = NULL;
             ifing = 1;
             cond = 1;
-            ifSize = j;
         }
 
         /* Does command line end with & */ 
-        if (!strcmp(argv[i - 1], "&")) {
+        if (!strcmp(argv[argc - 1], "&")) {
             amper = 1;
-            argv[i - 1] = NULL;
+            argv[argc - 1] = NULL;
         } else 
             amper = 0;
         
-        if (i >= 2 && (!strcmp(argv[i - 2], ">") || !strcmp(argv[i - 2], "2>") || !strcmp(argv[i - 2], ">>"))) {
-            if (!strcmp(argv[i - 2], ">")) {
+        if (argc >= 2 && (!strcmp(argv[argc - 2], ">") || !strcmp(argv[argc - 2], "2>") || !strcmp(argv[argc - 2], ">>"))) {
+            if (!strcmp(argv[argc - 2], ">")) {
                 redirect = REDIRECT;
-            } else if (!strcmp(argv[i - 2], "2>")) {
+            } else if (!strcmp(argv[argc - 2], "2>")) {
                 redirect = REDIRECT_STDERR;
             } else {
                 redirect = APPEND;
             }
-            outfile = argv[i - 1];
-            argv[i - 2] = NULL;
+            outfile = argv[argc - 1];
+            argv[argc - 2] = NULL;
         } else {
             redirect = 0;
         }
 
         /* for commands not part of the shell command language */ 
         if (fork() == 0) { // only the child process enters this if, the parent doesn't
-            signal(SIGINT, SIG_DFL); // remove the ctrl c signal
             /* redirection of IO ? */
             if (redirect) {
                 if (redirect == REDIRECT || redirect == REDIRECT_STDERR) {
@@ -349,17 +391,16 @@ int main() {
             }
             if (ifing) {
                 execvp(argv[1], argv + 1);
-                printf("%s: command not found\n", argv[1]);
             } else {
                 execvp(argv[0], argv);
-                printf("%s: command not found\n", argv[0]);
             }
-            
-            return 1; // file was not found - killing the child process by returning
+            /* error with execvp - free and return */
+            myfree(command, var_array, commands, if_inputs);
+            return 1;
         }  
         /* parent continues here */
         if (amper == 0)
-            retid = wait(&status);
+            wait(&status);
         if (ifing) {
             if ((status >> 8) == 0) {
                 pcmd = 1;
@@ -370,20 +411,6 @@ int main() {
         ifing = 0;
     }
 
-    free(command);
-    free(prevCommand);
-    for (int i = 0; i < n; i++) {
-        free(var_array[i].name);
-        free(var_array[i].value);
-    }
-    free(var_array);
-    for (int i = 0; i < commandsSize; i++) {
-        free(commands[i]);
-    }
-    free(commands);
-    i = 0;
-    while (i < ifSize)
-        free(if_inputs[i++]);
-    free(if_inputs);
+    myfree(command, var_array, commands, if_inputs);
     return 0;
 }

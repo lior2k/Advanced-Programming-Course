@@ -1,0 +1,81 @@
+hello: prompt = hello1 hello2 hello3:
+hello1 hello2 hello3: prompt = hello1 hello2:
+hello1 hello2: $x = 5
+hello1 hello2: $y = 18
+hello1 hello2: expr $x + $y
+23
+hello1 hello2: read name value cmd
+colors.txt red ls -l
+hello1 hello2: echo $name $value
+colors.txt red 
+hello1 hello2: echo $cmd
+ls -l 
+hello1 hello2: $cmd $value
+hello1 hello2: $cmd
+hello1 hello2: cat $name
+blue
+red
+green
+hello1 hello2: ls -l colors.txt
+-rw-rw-r-- 1 lior lior 15 Apr  9 09:58 colors.txt
+hello1 hello2: $cmd $name
+hello1 hello2: expr $x + $y
+23
+hello1 hello2: quit
+lior@ubuntu:~/Desktop/Projects/Shell$ gcc -o myshell myshelltst.c
+lior@ubuntu:~/Desktop/Projects/Shell$ ./myshell
+hello: prompt = hello1 hello2 hello3:
+hello1 hello2 hello3: prompt = hello1 hello2:
+hello1 hello2: $x = 5
+hello1 hello2: $y = 18
+hello1 hello2: expr $x + $y
+23
+hello1 hello2: read name flag cmd
+colors.txt -l ls
+hello1 hello2: echo $name $flag
+colors.txt -l 
+hello1 hello2: echo $cmd
+ls 
+hello1 hello2: $cmd $flag $name
+-rw-rw-r-- 1 lior lior 15 Apr  9 09:58 colors.txt
+hello1 hello2: ls -l colors.txt
+-rw-rw-r-- 1 lior lior 15 Apr  9 09:58 colors.txt
+hello1 hello2: read lessnames
+1 2 3 4
+hello1 hello2: echo $lessnames
+1 2 3 4 
+hello1 hello2: read lessvals extra
+1
+hello1 hello2: echo $lessvals
+1 
+hello1 hello2: echo $extra
+
+hello1 hello2: cat colors.txt
+blue
+red
+green
+hello1 hello2: if cat colors.txt | grep green
+then
+echo t1
+echo t2
+else
+echo nada
+fi
+t1 
+t2 
+hello1 hello2: if asdasdasd
+then
+echo yes
+else
+echo no
+echo no no no
+echo no no
+fi
+no 
+no no no 
+no no 
+hello1 hello2: echo $?
+1
+hello1 hello2: !!
+1
+hello1 hello2: quit

@@ -6,12 +6,7 @@
 #include <pthread.h>
 #include "threadpool.h"
 
-void enqueue(queue_t *queue, char *data) {
-    task_t *new_task = malloc(sizeof(task_t));
-    new_task->data = malloc(sizeof(char)*strlen(data) + 1);
-    strcpy(new_task->data, data);
-    new_task->next = NULL;
-
+void enqueue(queue_t *queue, task_t *new_task) {
     if (queue->tail == NULL) {
         queue->head = new_task;
         queue->tail = new_task;
@@ -25,7 +20,6 @@ task_t* dequeue(queue_t *queue) {
     if (queue->head == NULL) {
         return NULL;
     }
-
     task_t *task = queue->head;
     if (queue->head == queue->tail) {
         queue->head = NULL;
@@ -33,7 +27,6 @@ task_t* dequeue(queue_t *queue) {
     } else {
         queue->head = queue->head->next;
     }
-
     return task;
 }
 
@@ -43,7 +36,7 @@ void *worker_thread(void *arg) {
 
     while (1) {
         pthread_mutex_lock(&pool->mutex);
-        // printf("%tid: ld\n", pthread_self());
+        // printf("tid: %ld\n", pthread_self());
         while (pool->task_queue->head == NULL && !pool->shutdown) {
             pthread_cond_wait(&pool->cond, &pool->mutex);
         }
@@ -52,22 +45,33 @@ void *worker_thread(void *arg) {
             pthread_mutex_unlock(&pool->mutex);
             pthread_exit(NULL);
         }
-
         task_t *task = dequeue(pool->task_queue);
-
         pthread_mutex_unlock(&pool->mutex);
+        pthread_cond_signal(&pool->cond);
 
-        // task.task(task.arg);
         pool->func(task->data, pool->key);
+
+        pthread_mutex_lock(&pool->sync_order_mutex);
+        while (pool->current_task != task->id) {
+            pthread_cond_wait(&pool->sync_order_cond, &pool->sync_order_mutex);
+        }
+        pool->current_task++;
         printf("%s", task->data);
+        pthread_mutex_unlock(&pool->sync_order_mutex);
+        pthread_cond_broadcast(&pool->sync_order_cond);
+        free(task->data);
+        free(task);
     }
     return NULL;
 }
 
 threadpool_t* init_threadpool(char **argv) {
-    threadpool_t *pool;
+    threadpool_t *pool = malloc(sizeof(threadpool_t));
+    pool->current_task = 0;
     pthread_mutex_init(&pool->mutex, NULL);
     pthread_cond_init(&pool->cond, NULL);
+    pthread_mutex_init(&pool->sync_order_mutex, NULL);
+    pthread_cond_init(&pool->sync_order_cond, NULL);
     // Number of available CPUs on the system (logical processors)
     pool->numCPU = sysconf(_SC_NPROCESSORS_ONLN);
     // Declare number of threads
@@ -109,9 +113,21 @@ void threadpool_shutdown(threadpool_t* pool) {
 
     free(pool->tid);
     free(pool->task_queue);
+    free(pool);
 
     pthread_mutex_destroy(&pool->mutex);
     pthread_cond_destroy(&pool->cond);
+    pthread_mutex_destroy(&pool->sync_order_mutex);
+    pthread_cond_destroy(&pool->sync_order_cond);
+}
+
+task_t* createNewTask(char *data, int task_counter) {
+    task_t *new_task = malloc(sizeof(task_t));
+    new_task->data = malloc(sizeof(char)*strlen(data) + 1);
+    strcpy(new_task->data, data);
+    new_task->next = NULL;
+    new_task->id = task_counter;
+    return new_task;
 }
 
 // Main thread (Boss)
@@ -123,16 +139,19 @@ int main(int argc, char *argv[]) {
     threadpool_t *pool = init_threadpool(argv);
 
     char c;
-    int counter = 0;
-    char *data = (char*) malloc(sizeof(char)*1024);
+    int counter = 0, task_counter = 0;
+    char *data = (char*) malloc(sizeof(char)*BUFFSIZE);
 
     while ((c = getchar()) != EOF) {
         data[counter] = c;
 	  	counter++;
 
-        if (counter == 1024) {
+        if (counter == BUFFSIZE) {
+            task_t *new_task = createNewTask(data, task_counter);
+            task_counter++;
+
             pthread_mutex_lock(&pool->mutex);
-            enqueue(pool->task_queue, data);
+            enqueue(pool->task_queue, new_task);
             pthread_mutex_unlock(&pool->mutex);
             pthread_cond_signal(&pool->cond);
             counter = 0;
@@ -141,14 +160,23 @@ int main(int argc, char *argv[]) {
 
     // work on remaining data
     if (counter > 0) {
+        task_t *new_task = createNewTask(data, task_counter);
+        task_counter++;
+
         pthread_mutex_lock(&pool->mutex);
-        enqueue(pool->task_queue, data);
+        enqueue(pool->task_queue, new_task);
         pthread_mutex_unlock(&pool->mutex);
         pthread_cond_signal(&pool->cond);
     }
 
-    // wait for workers to finish
-    while (pool->task_queue->head != NULL);
+    // wait for queue to empty -> busy waiting should be replaced with muted and cond
+    pthread_mutex_lock(&pool->mutex);
+    while (pool->task_queue->head != NULL) {
+        pthread_cond_wait(&pool->cond, &pool->mutex);
+    }
+    pthread_mutex_unlock(&pool->mutex);
+
+    free(data);
     threadpool_shutdown(pool);
 
     // exit

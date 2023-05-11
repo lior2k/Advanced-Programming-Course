@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "threadpool.h"
+#include <time.h>
 
 void enqueue(queue_t *queue, task_t *new_task) {
     if (queue->tail == NULL) {
@@ -73,7 +74,7 @@ threadpool_t* init_threadpool(char **argv) {
     pthread_mutex_init(&pool->sync_order_mutex, NULL);
     pthread_cond_init(&pool->sync_order_cond, NULL);
     // Number of available CPUs on the system (logical processors)
-    pool->numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+    pool->numCPU = sysconf(_SC_NPROCESSORS_ONLN) * 16;
     // Declare number of threads
     pool->tid = (pthread_t*) malloc(sizeof(pthread_t)*pool->numCPU);
     // Declare task queue
@@ -132,6 +133,7 @@ task_t* createNewTask(char *data, int task_counter) {
 
 // Main thread (Boss)
 int main(int argc, char *argv[]) {
+    clock_t begin = clock();
     if (argc < 3) {
         exit(EXIT_FAILURE);
     }
@@ -179,6 +181,8 @@ int main(int argc, char *argv[]) {
     free(data);
     threadpool_shutdown(pool);
 
-    // exit
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("\n%f\n", time_spent);
     exit(EXIT_SUCCESS);
 }

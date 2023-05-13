@@ -1,6 +1,6 @@
 # Threadpool Implementation
 
-This project is about implementing a threadpool mechanism to parallelize an encryption algorithm that is not so fast. The encryption algorithm is provided as a shared library compiled for x86, with two functions: `encode` and `decode`. The goal is to utilize multithreading to improve performance by utilizing multi-cores of the system.
+This project is about implementing a threadpool mechanism to parallelize an encryption algorithm that is not so fast. The encryption algorithm is provided as a shared library compiled for x86, with two functions: `encode` and `decode`. The goal is to utilize multithreading to improve performance by utilizing multi-cores of the system. We decided to run 4 threads per core.
 
 ## Implementation
 
@@ -41,10 +41,10 @@ The `threadpool` module consists of the following components:
 The following commands can be used to compile and run the example:
 
 ```sh
-gcc threadpool.c -pthread ./libCodec.so -o exe
-echo "Hello, world!" | ./exe 2 -e
+make all
+echo "Hello, world!" | ./mythreadpool 2 -e
 outputs "Fcjjm*umpj"
-echo "Fcjjm*umpj" | ./exe 2 -d
+echo "Fcjjm*umpj" | ./mythreadpool 2 -d
 outputs "Hello, world!"
 ```
 

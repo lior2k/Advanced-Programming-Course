@@ -74,7 +74,7 @@ threadpool_t* init_threadpool(char **argv) {
     pthread_mutex_init(&pool->sync_order_mutex, NULL);
     pthread_cond_init(&pool->sync_order_cond, NULL);
     // Number of available CPUs on the system (logical processors)
-    pool->numCPU = sysconf(_SC_NPROCESSORS_ONLN) * 16;
+    pool->numCPU = sysconf(_SC_NPROCESSORS_ONLN) * 4;
     // Declare number of threads
     pool->tid = (pthread_t*) malloc(sizeof(pthread_t)*pool->numCPU);
     // Declare task queue

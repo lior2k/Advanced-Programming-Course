@@ -291,6 +291,16 @@ int main() {
             continue;
         }
 
+        // swap variables with values
+        for (int i = 0; i < argc; i++) {
+            if (argv[i][0]== '$') {
+                var *variable = lookup(variables, ++argv[i]);
+                if (variable != NULL) {
+                    argv[i] = variable->value;
+                }
+            }
+        }
+
         if (!strcmp(argv[0], "if")) {
             int j = 0;
             while (1) {
@@ -386,14 +396,7 @@ int main() {
                     return 0;
                 }
             } else {
-                for (int i = 0; i < argc; i++) {
-                    if (argv[i][0]== '$') {
-                        var *variable = lookup(variables, ++argv[i]);
-                        if (variable != NULL) {
-                            argv[i] = variable->value;
-                        }
-                    }
-                }
+                
                 execvp(argv[0], argv);
             }
             /* error with execvp - free and return */

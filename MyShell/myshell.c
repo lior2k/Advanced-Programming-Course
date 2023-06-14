@@ -196,6 +196,17 @@ void myfree(char *command, char *prompt, var *variables, char **commands, char *
     free(if_inputs);
 }
 
+// void swapVariablesWithValues(int argc, char **argv, var *variables) {
+//     for (int i = 0; i < argc; i++) {
+//         if (argv[i][0]== '$') {
+//             var *variable = lookup(variables, ++argv[i]);
+//             if (variable != NULL) {
+//                 argv[i] = variable->value;
+//             }
+//         }
+//     }
+// }
+
 int main() {
     signal(SIGINT, handle_sigint);
     int argc, fd, amper, status, redirect, piping;
@@ -291,7 +302,6 @@ int main() {
             continue;
         }
 
-        // swap variables with values
         for (int i = 0; i < argc; i++) {
             if (argv[i][0]== '$') {
                 var *variable = lookup(variables, ++argv[i]);
@@ -347,6 +357,7 @@ int main() {
             command = calloc(sizeof(char), BUFF_SIZE);
             strcpy(command, commands[num_commands - 1]);
         }
+
         /* for commands not part of the shell command language */ 
         if (fork() == 0) { // only the child process enters this if, the parent doesn't
             /* redirection of IO ? */
@@ -366,6 +377,7 @@ int main() {
                 dup(fd); 
                 close(fd);
             }
+
             if (piping) {
                 char *cmds[10];
                 int num_cmds = parseCommandLine(cmds, command, "|");
@@ -386,20 +398,31 @@ int main() {
                             close(pipedes[index - 1][0]);
                             close(pipedes[index - 1][1]);
                         }
+                        if (!strcmp(argv[0], "if")) {
+                            execvp(argv[1], argv + 1);
+                        }
                         execvp(argv[0], argv);
+                        myfree(command, prompt, variables, commands, if_inputs);
+                        return 1;
                     }
                     if (index > 0) { // parent and not first command -> close previous pipes
                         close(pipedes[index - 1][0]);
                         close(pipedes[index - 1][1]);
                     }
                     wait(&status);
-                    return 0;
+                    if ((status >> 8) != 0) {
+                        return 1;
+                    }
                 }
-            } else {
-                
-                execvp(argv[0], argv);
+                return 0;
             }
-            /* error with execvp - free and return */
+
+            if (ifing) {
+                execvp(argv[1], argv + 1);
+            }
+
+            execvp(argv[0], argv);
+            /* error with execvp - free and return (probably wrong name given) */
             myfree(command, prompt, variables, commands, if_inputs);
             return 1;
         }  

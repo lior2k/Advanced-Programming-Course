@@ -1,8 +1,11 @@
 #include <pthread.h>
 
+#define BUFFSIZE 1024
+
 typedef struct task {
     char *data;
     struct task *next;
+    int id;
 } task_t;
 
 typedef struct queue {
@@ -19,4 +22,7 @@ typedef struct threadpool {
     void (*func)();
     int key;
     int shutdown;
+    int current_task;
+    pthread_mutex_t sync_order_mutex;
+    pthread_cond_t sync_order_cond;
 } threadpool_t;
